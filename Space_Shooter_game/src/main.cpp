@@ -1,18 +1,180 @@
 #include <Arduino.h>
+#include <stdlib.h>
 
-// put function declarations here:
-int myFunction(int, int);
+// === Pin Definitions ===
+const int potPin = 34;      // Analog input for potentiometer
+const int buttonPin = 25;   // Digital input for shooting
+const int ledGreen = 26;    // Life 3
+const int ledYellow = 27;   // Life 2
+const int ledRed = 14;      // Life 1
+
+// === Game Constants ===
+const int SCREEN_WIDTH = 20;
+const int SCREEN_HEIGHT = 10;
+const int GAME_UPDATE_RATE = 800;    // Asteroid speed
+const int BULLET_UPDATE_RATE = 100;  // New: faster bullet speed
+const int DISPLAY_UPDATE_RATE = 200;  // Screen refresh
+const int SHIP_MOVE_RATE = 50;       // Ship movement
+
+// === Game Variables ===
+int shipPosition = SCREEN_WIDTH / 2;
+int bulletY = -1;
+int bulletX = 0;
+int asteroidX = 0;
+int asteroidY = 0;
+int lives = 3;
+int score = 0;
+bool gameOver = false;
+unsigned long lastUpdate = 0;
+unsigned long lastShipUpdate = 0;  // New: separate timer for ship movement
+unsigned long lastDisplayUpdate = 0;  // New: separate display timer
+unsigned long lastBulletUpdate = 0;  // New: separate bullet timer
+int targetShipPosition = SCREEN_WIDTH / 2;  // New: target position for smooth movement
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(ledGreen, OUTPUT);
+  pinMode(ledYellow, OUTPUT);
+  pinMode(ledRed, OUTPUT);
+  
+  // Show welcome message
+  Serial.println("\n\n=== Space Shooter Game ===");
+  Serial.println("Use potentiometer to move left/right");
+  Serial.println("Press button to shoot");
+  Serial.println("Press any key to start...");
+  
+  // Wait for user input
+  while(!Serial.available()) {
+    delay(100);
+  }
+  Serial.read(); // Clear input buffer
+}
+
+void updateLEDs() {
+  digitalWrite(ledGreen, lives >= 3);
+  digitalWrite(ledYellow, lives >= 2);
+  digitalWrite(ledRed, lives >= 1);
+}
+
+void drawGame() {
+  // Clear screen more aggressively with multiple ANSI sequences
+  Serial.print("\033[2J");        // Clear entire screen
+  Serial.print("\033[3J");        // Clear scrollback buffer
+  Serial.print("\033[H");         // Move cursor to home position
+  Serial.print("\033[?25l");      // Hide cursor
+  Serial.print("\n\n\n");         // Add some padding at top
+  
+  // Draw top border with single print
+  Serial.print("+--------------------+\n");  // Fixed width border
+  
+  // Draw game area
+  for(int y = 0; y < SCREEN_HEIGHT - 1; y++) {
+    Serial.print("|");
+    for(int x = 0; x < SCREEN_WIDTH; x++) {
+      if(y == asteroidY && x == asteroidX) {
+        Serial.print("*");
+      } else if(y == bulletY && x == bulletX) {
+        Serial.print("^");
+      } else {
+        Serial.print(" ");
+      }
+    }
+    Serial.print("|\n");  // Use print instead of println
+  }
+  
+  // Draw ship on bottom line
+  Serial.print("|");
+  for(int x = 0; x < SCREEN_WIDTH; x++) {
+    Serial.print(x == shipPosition ? "W" : " ");
+  }
+  Serial.print("|\n");
+  
+  // Draw bottom border and stats
+  Serial.print("+--------------------+\n");
+  Serial.print("Lives: ");
+  Serial.print(lives);
+  Serial.print(" Score: ");
+  Serial.print(score);
+  Serial.print("\n");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+  system("cls"); // Clear console on Windows
+  if(gameOver) {
+    Serial.println("\nGAME OVER - Final Score: " + String(score));
+    while(1) delay(1000);
+    return;
+  }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  unsigned long currentTime = millis();
+
+  // Smooth ship movement (runs frequently)
+  if(currentTime - lastShipUpdate >= SHIP_MOVE_RATE) {
+    lastShipUpdate = currentTime;
+    
+    int potValue = analogRead(potPin);
+    targetShipPosition = map(potValue, 0, 4095, 0, SCREEN_WIDTH - 1);
+    
+    if(shipPosition < targetShipPosition) {
+      shipPosition++;
+    } else if(shipPosition > targetShipPosition) {
+      shipPosition--;
+    }
+  }
+
+  // New: Separate bullet update (faster than game update)
+  if(currentTime - lastBulletUpdate >= BULLET_UPDATE_RATE) {
+    lastBulletUpdate = currentTime;
+    
+    // Update bullet position and check collisions
+    if(bulletY >= 0) {
+      int prevBulletY = bulletY;
+      bulletY--;
+      
+      if(bulletX == asteroidX && 
+         ((prevBulletY >= asteroidY && bulletY <= asteroidY) || 
+          (bulletY == asteroidY))) {
+        score += 10;
+        asteroidY = 0;
+        asteroidX = random(0, SCREEN_WIDTH);
+        bulletY = -1;
+      }
+    }
+  }
+
+  // Game logic update (asteroid movement and shooting)
+  if(currentTime - lastUpdate >= GAME_UPDATE_RATE) {
+    lastUpdate = currentTime;
+    
+    // Handle shooting
+    if(digitalRead(buttonPin) == LOW && bulletY < 0) {
+      bulletY = SCREEN_HEIGHT - 2;
+      bulletX = shipPosition;
+    }
+    
+    // Update asteroid
+    asteroidY++;
+    if(asteroidY >= SCREEN_HEIGHT - 1) {
+      if(abs(asteroidX - shipPosition) <= 1) {
+        lives--;
+      }
+      asteroidY = 0;
+      asteroidX = random(0, SCREEN_WIDTH);
+    }
+    
+    updateLEDs();
+    
+    if(lives <= 0) {
+      gameOver = true;
+    }
+  }
+
+  // Display update
+  if(currentTime - lastDisplayUpdate >= DISPLAY_UPDATE_RATE) {
+    lastDisplayUpdate = currentTime;
+    drawGame();
+  }
+
+  delay(5);
 }
