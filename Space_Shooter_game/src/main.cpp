@@ -13,8 +13,8 @@ const int SCREEN_WIDTH = 20;
 const int SCREEN_HEIGHT = 10;
 const int GAME_UPDATE_RATE = 800;    // Asteroid speed
 const int BULLET_UPDATE_RATE = 100;  // New: faster bullet speed
-const int DISPLAY_UPDATE_RATE = 200;  // Screen refresh
-const int SHIP_MOVE_RATE = 50;       // Ship movement
+const int DISPLAY_UPDATE_RATE = 250;  // Screen refresh
+const int SHIP_MOVE_RATE = 10;       // Ship movement
 
 // === Game Variables ===
 int shipPosition = SCREEN_WIDTH / 2;
@@ -32,7 +32,7 @@ unsigned long lastBulletUpdate = 0;  // New: separate bullet timer
 int targetShipPosition = SCREEN_WIDTH / 2;  // New: target position for smooth movement
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(921600);
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(ledGreen, OUTPUT);
   pinMode(ledYellow, OUTPUT);
@@ -58,14 +58,14 @@ void updateLEDs() {
 }
 
 void drawGame() {
-  // Clear screen more aggressively with multiple ANSI sequences
-  Serial.print("\033[2J");        // Clear entire screen
-  Serial.print("\033[3J");        // Clear scrollback buffer
-  Serial.print("\033[H");         // Move cursor to home position
-  Serial.print("\033[?25l");      // Hide cursor
-  Serial.print("\n\n\n");         // Add some padding at top
-  
-  // Draw top border with single print
+  // // Clear screen more aggressively with multiple ANSI sequences
+  // Serial.print("\033[2J");        // Clear entire screen
+  // Serial.print("\033[3J");        // Clear scrollback buffer
+  // Serial.print("\033[H");         // Move cursor to home position
+  // Serial.print("\033[?25l");      // Hide cursor
+  //Serial.print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");         // Add some padding at top
+  for(int i = 0; i < 16; i++) Serial.println("                      "); // Add padding at top
+    // Draw top border with single print
   Serial.print("+--------------------+\n");  // Fixed width border
   
   // Draw game area
@@ -100,7 +100,6 @@ void drawGame() {
 }
 
 void loop() {
-  system("cls"); // Clear console on Windows
   if(gameOver) {
     Serial.println("\nGAME OVER - Final Score: " + String(score));
     while(1) delay(1000);
