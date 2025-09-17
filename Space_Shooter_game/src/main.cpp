@@ -43,7 +43,7 @@ unsigned long lastBulletUpdate = 0;
 int asteroidX[MAX_ASTEROIDS];
 int asteroidY[MAX_ASTEROIDS];
 int asteroidDir[MAX_ASTEROIDS];   // สำหรับ zigzag
-char asteroidType[MAX_ASTEROIDS]; // '*' = normal, '@' = zigzag
+char asteroidType[MAX_ASTEROIDS]; // '*' = normal, '@' = zigzag, '#' = fast
 int asteroidCount = 1;            // เริ่มมี 1 ลูก
 
 // เกม
@@ -107,7 +107,7 @@ void drawGame() {
       // วาดอุกกาบาตทั้งหมด
       for (int a = 0; a < asteroidCount; a++) {
         if(y == asteroidY[a] && x == asteroidX[a]) {
-          Serial.print(asteroidType[a]); // '*' หรือ '@'
+          Serial.print(asteroidType[a]); 
           printed = true;
           break;
         }
@@ -146,6 +146,13 @@ void drawGame() {
   Serial.print("\n");
 }
 
+int getAsteroidScore(char type) {
+  if(type == '*') return 10;
+  if(type == '@') return 15;
+  if(type == '#') return 20;
+  return 5;
+}
+
 void shootBullet() {
   for(int i = 0; i < MAX_BULLETS; i++) {
     if(!bulletActive[i]) {
@@ -167,11 +174,12 @@ void updateBullets() {
         if(bulletX[i] == asteroidX[a] &&
            ((prevY >= asteroidY[a] && bulletY[i] <= asteroidY[a]) ||
             (bulletY[i] == asteroidY[a]))) {
-          score += 10;
+          score += getAsteroidScore(asteroidType[a]);  // คะแนนตามประเภท
           asteroidY[a] = 0;
           asteroidX[a] = random(0, SCREEN_WIDTH);
           asteroidDir[a] = random(0, 2) == 0 ? -1 : 1;
-          asteroidType[a] = random(0, 2) == 0 ? '*' : '@'; // สุ่มชนิดใหม่
+          int r = random(0, 3);
+          asteroidType[a] = (r == 0 ? '*' : (r == 1 ? '@' : '#'));
           bulletActive[i] = false;
         }
       }
@@ -196,7 +204,8 @@ void setup() {
   asteroidX[0] = random(0, SCREEN_WIDTH);
   asteroidY[0] = 0;
   asteroidDir[0] = random(0, 2) == 0 ? -1 : 1;
-  asteroidType[0] = random(0, 2) == 0 ? '*' : '@';
+  int r = random(0, 3);
+  asteroidType[0] = (r == 0 ? '*' : (r == 1 ? '@' : '#'));
 
   for(int i = 0; i < MAX_BULLETS; i++) bulletActive[i] = false;
 
@@ -248,7 +257,12 @@ void loop() {
     lastUpdate = currentTime;
 
     for (int a = 0; a < asteroidCount; a++) {
-      asteroidY[a]++;
+      // ความเร็วตกต่างกันตามประเภท
+      if(asteroidType[a] == '#') {
+        asteroidY[a] += 2;  // fast asteroid
+      } else {
+        asteroidY[a]++;
+      }
 
       if(asteroidType[a] == '@') { // zigzag only
         asteroidX[a] += asteroidDir[a];
@@ -264,7 +278,8 @@ void loop() {
         asteroidY[a] = 0;
         asteroidX[a] = random(0, SCREEN_WIDTH);
         asteroidDir[a] = random(0, 2) == 0 ? -1 : 1;
-        asteroidType[a] = random(0, 2) == 0 ? '*' : '@';
+        int r = random(0, 3);
+        asteroidType[a] = (r == 0 ? '*' : (r == 1 ? '@' : '#'));
       }
     }
 
@@ -273,13 +288,14 @@ void loop() {
   }
 
   // Difficulty scaling
-  GAME_UPDATE_RATE = max(200, 800 - (score / 50) * 100);
+  GAME_UPDATE_RATE = max(200, 800 - (score / 50) * 50);
 
   if(score >= lastMilestone + 100 && asteroidCount < MAX_ASTEROIDS) {
     asteroidX[asteroidCount] = random(0, SCREEN_WIDTH);
     asteroidY[asteroidCount] = 0;
     asteroidDir[asteroidCount] = random(0, 2) == 0 ? -1 : 1;
-    asteroidType[asteroidCount] = random(0, 2) == 0 ? '*' : '@';
+    int r = random(0, 3);
+    asteroidType[asteroidCount] = (r == 0 ? '*' : (r == 1 ? '@' : '#'));
     asteroidCount++;
     lastMilestone += 100;
   }
