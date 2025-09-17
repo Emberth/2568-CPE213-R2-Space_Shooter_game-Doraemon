@@ -2,11 +2,11 @@
 #include <stdlib.h>
 
 // === Pin Definitions ===
-const int potPin = 34;      
-const int buttonPin = 25;   
-const int ledGreen = 26;    
-const int ledYellow = 27;   
-const int ledRed = 14;      
+const int potPin = 34;
+const int buttonPin = 25;
+const int ledGreen = 26;
+const int ledYellow = 27;
+const int ledRed = 14;
 
 // Ultrasonic Sensor 1
 const int trigPin1 = 32;
@@ -19,29 +19,47 @@ const int echoPin2 = 5;
 // === Game Constants ===
 const int SCREEN_WIDTH = 20;
 const int SCREEN_HEIGHT = 10;
-const int GAME_UPDATE_RATE = 500;     
-const int BULLET_UPDATE_RATE = 100;   
-const int DISPLAY_UPDATE_RATE = 100;  
-const int SHIP_MOVE_RATE = 5;        
-const int DETECT_DISTANCE = 10;       
+int GAME_UPDATE_RATE = 800;        // asteroid speed (dynamic)
+const int BULLET_UPDATE_RATE = 100;
+const int BULLET_COOLDOWN = 200;   // ยิงได้ทุก 200ms
+const int DISPLAY_UPDATE_RATE = 100;
+const int SHIP_MOVE_RATE = 5;
+const int DETECT_DISTANCE = 10;
+
+const int MAX_ASTEROIDS = 10;    // สูงสุด 10 ลูก
+const int MAX_BULLETS = 5;       // กระสุนสูงสุด 5 ลูกบนจอ
 
 // === Game Variables ===
 int shipPosition = SCREEN_WIDTH / 2;
-int bulletY = -1;
-int bulletX = 0;
-int asteroidX = 0;
-int asteroidY = 0;
+
+// กระสุน
+int bulletX[MAX_BULLETS];
+int bulletY[MAX_BULLETS];
+bool bulletActive[MAX_BULLETS];
+unsigned long lastBulletShot = 0;
+unsigned long lastBulletUpdate = 0;
+
+// อุกกาบาต
+int asteroidX[MAX_ASTEROIDS];
+int asteroidY[MAX_ASTEROIDS];
+int asteroidDir[MAX_ASTEROIDS];   // สำหรับ zigzag
+char asteroidType[MAX_ASTEROIDS]; // '*' = normal, '@' = zigzag
+int asteroidCount = 1;            // เริ่มมี 1 ลูก
+
+// เกม
 int lives = 3;
 int score = 0;
 bool gameOver = false;
-bool gameOverPrinted = false;   // <--- flag ใหม่
+bool gameOverPrinted = false;
+
 unsigned long lastUpdate = 0;
 unsigned long lastShipUpdate = 0;
 unsigned long lastDisplayUpdate = 0;
-unsigned long lastBulletUpdate = 0;
 int targetShipPosition = SCREEN_WIDTH / 2;
 
-// === Functions for Ultrasonic ===
+int lastMilestone = 0;  // สำหรับเพิ่มอุกกาบาตทีละลูก
+
+// === Ultrasonic Functions ===
 long readUltrasonic(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -70,7 +88,7 @@ bool isPersonDetected() {
          (dist2 > 0 && dist2 < DETECT_DISTANCE);
 }
 
-// === Game Support Functions ===
+// === Game Functions ===
 void updateLEDs() {
   digitalWrite(ledGreen, lives >= 3);
   digitalWrite(ledYellow, lives >= 2);
@@ -80,33 +98,87 @@ void updateLEDs() {
 void drawGame() {
   for(int i = 0; i < 16; i++) Serial.println("                      ");
   Serial.print("+--------------------+\n");
-  
+
   for(int y = 0; y < SCREEN_HEIGHT - 1; y++) {
     Serial.print("|");
     for(int x = 0; x < SCREEN_WIDTH; x++) {
-      if(y == asteroidY && x == asteroidX) {
-        Serial.print("*");
-      } else if(y == bulletY && x == bulletX) {
-        Serial.print("^");
-      } else {
-        Serial.print(" ");
+      bool printed = false;
+
+      // วาดอุกกาบาตทั้งหมด
+      for (int a = 0; a < asteroidCount; a++) {
+        if(y == asteroidY[a] && x == asteroidX[a]) {
+          Serial.print(asteroidType[a]); // '*' หรือ '@'
+          printed = true;
+          break;
+        }
       }
+
+      // วาดกระสุนทั้งหมด
+      if(!printed) {
+        for (int b = 0; b < MAX_BULLETS; b++) {
+          if(bulletActive[b] && y == bulletY[b] && x == bulletX[b]) {
+            Serial.print("^");
+            printed = true;
+            break;
+          }
+        }
+      }
+
+      if(!printed) Serial.print(" ");
     }
     Serial.print("|\n");
   }
-  
+
+  // วาดยาน
   Serial.print("|");
   for(int x = 0; x < SCREEN_WIDTH; x++) {
     Serial.print(x == shipPosition ? "W" : " ");
   }
   Serial.print("|\n");
-  
+
   Serial.print("+--------------------+\n");
   Serial.print("Lives: ");
   Serial.print(lives);
   Serial.print(" Score: ");
   Serial.print(score);
+  Serial.print(" Asteroids: ");
+  Serial.print(asteroidCount);
   Serial.print("\n");
+}
+
+void shootBullet() {
+  for(int i = 0; i < MAX_BULLETS; i++) {
+    if(!bulletActive[i]) {
+      bulletX[i] = shipPosition;
+      bulletY[i] = SCREEN_HEIGHT - 2;
+      bulletActive[i] = true;
+      break;
+    }
+  }
+}
+
+void updateBullets() {
+  for(int i = 0; i < MAX_BULLETS; i++) {
+    if(bulletActive[i]) {
+      int prevY = bulletY[i];
+      bulletY[i]--;
+
+      for (int a = 0; a < asteroidCount; a++) {
+        if(bulletX[i] == asteroidX[a] &&
+           ((prevY >= asteroidY[a] && bulletY[i] <= asteroidY[a]) ||
+            (bulletY[i] == asteroidY[a]))) {
+          score += 10;
+          asteroidY[a] = 0;
+          asteroidX[a] = random(0, SCREEN_WIDTH);
+          asteroidDir[a] = random(0, 2) == 0 ? -1 : 1;
+          asteroidType[a] = random(0, 2) == 0 ? '*' : '@'; // สุ่มชนิดใหม่
+          bulletActive[i] = false;
+        }
+      }
+
+      if(bulletY[i] < 0) bulletActive[i] = false;
+    }
+  }
 }
 
 void setup() {
@@ -120,9 +192,17 @@ void setup() {
   pinMode(trigPin2, OUTPUT);
   pinMode(echoPin2, INPUT);
 
+  // init asteroid แรก
+  asteroidX[0] = random(0, SCREEN_WIDTH);
+  asteroidY[0] = 0;
+  asteroidDir[0] = random(0, 2) == 0 ? -1 : 1;
+  asteroidType[0] = random(0, 2) == 0 ? '*' : '@';
+
+  for(int i = 0; i < MAX_BULLETS; i++) bulletActive[i] = false;
+
   Serial.println("\n\n=== Space Shooter Game ===");
   Serial.println("Use potentiometer to move left/right");
-  Serial.println("Press button to shoot");
+  Serial.println("Press button to shoot (can shoot multiple bullets)");
   Serial.println("Game will start when someone is detected within 10 cm...");
 }
 
@@ -133,11 +213,11 @@ void loop() {
   }
 
   if(gameOver) {
-    if(!gameOverPrinted) {  // <--- เช็ค flag
+    if(!gameOverPrinted) {
       Serial.println("\nGAME OVER - Final Score: " + String(score));
-      gameOverPrinted = true; // พิมพ์ครั้งเดียว
+      gameOverPrinted = true;
     }
-    return; // ไม่ทำ logic ต่อ
+    return;
   }
 
   unsigned long currentTime = millis();
@@ -151,40 +231,57 @@ void loop() {
     else if(shipPosition > targetShipPosition) shipPosition--;
   }
 
+  // Shooting
+  if(digitalRead(buttonPin) == LOW && currentTime - lastBulletShot >= BULLET_COOLDOWN) {
+    shootBullet();
+    lastBulletShot = currentTime;
+  }
+
   // Bullet update
   if(currentTime - lastBulletUpdate >= BULLET_UPDATE_RATE) {
     lastBulletUpdate = currentTime;
-    if(bulletY >= 0) {
-      int prevBulletY = bulletY;
-      bulletY--;
-      if(bulletX == asteroidX && 
-         ((prevBulletY >= asteroidY && bulletY <= asteroidY) || 
-          (bulletY == asteroidY))) {
-        score += 10;
-        asteroidY = 0;
-        asteroidX = random(0, SCREEN_WIDTH);
-        bulletY = -1;
-      }
-    }
+    updateBullets();
   }
 
   // Asteroid update
   if(currentTime - lastUpdate >= GAME_UPDATE_RATE) {
     lastUpdate = currentTime;
-    if(digitalRead(buttonPin) == LOW && bulletY < 0) {
-      bulletY = SCREEN_HEIGHT - 2;
-      bulletX = shipPosition;
-    }
-    asteroidY++;
-    if(asteroidY >= SCREEN_HEIGHT - 1) {
-      if(abs(asteroidX - shipPosition) <= 1) {
-        lives--;
+
+    for (int a = 0; a < asteroidCount; a++) {
+      asteroidY[a]++;
+
+      if(asteroidType[a] == '@') { // zigzag only
+        asteroidX[a] += asteroidDir[a];
+        if(asteroidX[a] <= 0 || asteroidX[a] >= SCREEN_WIDTH-1) {
+          asteroidDir[a] *= -1;
+        }
       }
-      asteroidY = 0;
-      asteroidX = random(0, SCREEN_WIDTH);
+
+      if(asteroidY[a] >= SCREEN_HEIGHT - 1) {
+        if(abs(asteroidX[a] - shipPosition) <= 1) {
+          lives--;
+        }
+        asteroidY[a] = 0;
+        asteroidX[a] = random(0, SCREEN_WIDTH);
+        asteroidDir[a] = random(0, 2) == 0 ? -1 : 1;
+        asteroidType[a] = random(0, 2) == 0 ? '*' : '@';
+      }
     }
+
     updateLEDs();
     if(lives <= 0) gameOver = true;
+  }
+
+  // Difficulty scaling
+  GAME_UPDATE_RATE = max(200, 800 - (score / 50) * 100);
+
+  if(score >= lastMilestone + 100 && asteroidCount < MAX_ASTEROIDS) {
+    asteroidX[asteroidCount] = random(0, SCREEN_WIDTH);
+    asteroidY[asteroidCount] = 0;
+    asteroidDir[asteroidCount] = random(0, 2) == 0 ? -1 : 1;
+    asteroidType[asteroidCount] = random(0, 2) == 0 ? '*' : '@';
+    asteroidCount++;
+    lastMilestone += 100;
   }
 
   // Display update
