@@ -2,11 +2,11 @@
 #include <stdlib.h>
 
 // === Pin Definitions ===
-const int potPin = 34;      // Analog input for potentiometer
-const int buttonPin = 25;   // Digital input for shooting
-const int ledGreen = 26;    // Life 3
-const int ledYellow = 27;   // Life 2
-const int ledRed = 14;      // Life 1
+const int potPin = 34;      
+const int buttonPin = 25;   
+const int ledGreen = 26;    
+const int ledYellow = 27;   
+const int ledRed = 14;      
 
 // Ultrasonic Sensor 1
 const int trigPin1 = 32;
@@ -19,11 +19,11 @@ const int echoPin2 = 5;
 // === Game Constants ===
 const int SCREEN_WIDTH = 20;
 const int SCREEN_HEIGHT = 10;
-const int GAME_UPDATE_RATE = 800;     // Asteroid speed
-const int BULLET_UPDATE_RATE = 100;   // Bullet speed
-const int DISPLAY_UPDATE_RATE = 250;  // Screen refresh
-const int SHIP_MOVE_RATE = 10;        // Ship movement
-const int DETECT_DISTANCE = 10;       // ตรวจจับ 10 cm
+const int GAME_UPDATE_RATE = 500;     
+const int BULLET_UPDATE_RATE = 100;   
+const int DISPLAY_UPDATE_RATE = 100;  
+const int SHIP_MOVE_RATE = 5;        
+const int DETECT_DISTANCE = 10;       
 
 // === Game Variables ===
 int shipPosition = SCREEN_WIDTH / 2;
@@ -34,6 +34,7 @@ int asteroidY = 0;
 int lives = 3;
 int score = 0;
 bool gameOver = false;
+bool gameOverPrinted = false;   // <--- flag ใหม่
 unsigned long lastUpdate = 0;
 unsigned long lastShipUpdate = 0;
 unsigned long lastDisplayUpdate = 0;
@@ -47,16 +48,14 @@ long readUltrasonic(int trigPin, int echoPin) {
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-
-  long duration = pulseIn(echoPin, HIGH, 30000); // timeout 30ms
-  long distance = duration * 0.034 / 2; // cm
+  long duration = pulseIn(echoPin, HIGH, 30000);
+  long distance = duration * 0.034 / 2;
   return distance;
 }
 
-// อ่านหลายครั้งแล้วเฉลี่ย
 long stableReadUltrasonic(int trigPin, int echoPin) {
   long sum = 0;
-  int count = 5;  // อ่าน 5 ครั้ง
+  int count = 5;
   for (int i = 0; i < count; i++) {
     sum += readUltrasonic(trigPin, echoPin);
     delay(5);
@@ -67,8 +66,6 @@ long stableReadUltrasonic(int trigPin, int echoPin) {
 bool isPersonDetected() {
   long dist1 = stableReadUltrasonic(trigPin1, echoPin1);
   long dist2 = stableReadUltrasonic(trigPin2, echoPin2);
-
-
   return (dist1 > 0 && dist1 < DETECT_DISTANCE) ||
          (dist2 > 0 && dist2 < DETECT_DISTANCE);
 }
@@ -118,7 +115,6 @@ void setup() {
   pinMode(ledGreen, OUTPUT);
   pinMode(ledYellow, OUTPUT);
   pinMode(ledRed, OUTPUT);
-
   pinMode(trigPin1, OUTPUT);
   pinMode(echoPin1, INPUT);
   pinMode(trigPin2, OUTPUT);
@@ -133,14 +129,15 @@ void setup() {
 void loop() {
   if (!isPersonDetected()) {
     Serial.println("⏸ ไม่มีคนในระยะ 10cm - เกมหยุดชั่วคราว");
-    //delay(500);
     return;
   }
 
   if(gameOver) {
-    Serial.println("\nGAME OVER - Final Score: " + String(score));
-    while(1) //delay(1000);
-    return;
+    if(!gameOverPrinted) {  // <--- เช็ค flag
+      Serial.println("\nGAME OVER - Final Score: " + String(score));
+      gameOverPrinted = true; // พิมพ์ครั้งเดียว
+    }
+    return; // ไม่ทำ logic ต่อ
   }
 
   unsigned long currentTime = millis();
@@ -195,7 +192,4 @@ void loop() {
     lastDisplayUpdate = currentTime;
     drawGame();
   }
-
-  //delay(5);
 }
-
