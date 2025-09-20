@@ -33,3 +33,8 @@ The game logic runs on the ESP32 and is displayed via the Serial Monitor.
 4. Place hand/person within 10 cm of ultrasonic sensor to start the game.  
 
 ---
+
+## presentation link
+- https://www.canva.com/design/DAGzghaKBDA/ZtQdp-C0_UyI1fh8lkaYUA/edit?utm_content=DAGzghaKBDA&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+
+---
