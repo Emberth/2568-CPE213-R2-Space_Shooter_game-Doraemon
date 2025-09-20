@@ -1,0 +1,17 @@
+/// How to Run
+1. Connect hardware according to the provided circuit diagram.
+2. Upload code to ESP32 via Arduino IDE.
+3. Double-click launch_game.bat to open the serial monitor at 921600 baud.
+4. Place hand/person within 10 cm of ultrasonic sensor to start the game.
+
+/// Features
+Spaceship movement with potentiometer.
+Shooting with button (multi-bullet support).
+Asteroids with different movement patterns:
+* normal
+@ zigzag
+# fast falling
+Dynamic difficulty scaling:
+Asteroids increase in speed and number as score increases.
+LED life indicator (3 LEDs).
+Automatic game over state with score display.
