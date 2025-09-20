@@ -11,6 +11,11 @@ It uses:
 The game logic runs on the ESP32 and is displayed via the Serial Monitor.
 
 ---
+## picture of actual hardware
+
+![Uploading IMG_0635.jpg…]()
+
+---
 
 ## Features
 - Spaceship movement with potentiometer.
