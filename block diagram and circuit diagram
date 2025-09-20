@@ -1,0 +1,79 @@
+/// Block Diagram
+    +------------------+
+          |   Ultrasonic 1   |
+          |   (HC-SR04)      |
+          +------------------+
+                   |
+          +------------------+
+          |   Ultrasonic 2   |
+          |   (HC-SR04)      |
+          +------------------+
+                   |
+                   v
+          +------------------+
+          |      ESP32       |
+          |  (Main Control)  |
+          +------------------+
+             |     |     |
+     Pot     |     |     |    Push Button
+  (Analog)   |     |     |    (Digital Input)
+             |     |     |
+             v     v     v
+       +----------------------+
+       |   Game Logic (C++)   |
+       | - Ship movement      |
+       | - Shooting bullets   |
+       | - Asteroid falling   |
+       | - Collision detect   |
+       +----------------------+
+             |     |     |
+             |     |     |
+             v     v     v
+        +---------+----------+
+        |   LED Green/Yellow/Red  |
+        |   (Life indicator)      |
+        +-------------------------+
+                   |
+                   v
+          +------------------+
+          |  Serial Monitor  |
+          | (Game Display)   |
+          +------------------+
+
+/// Circuit Diagram (Text-based)
+
+ESP32 DevKit
+
+                +---------------------------+
+   Potentiometer | GPIO34 (ADC)             |
+                 |                          |
+   Button ------>| GPIO25 (INPUT_PULLUP)    |
+                 |                          |
+   LED Green --->| GPIO26 (OUTPUT)          |
+   LED Yellow -->| GPIO27 (OUTPUT)          |
+   LED Red   --->| GPIO14 (OUTPUT)          |
+                 |                          |
+   HC-SR04 #1    | TRIG = GPIO32            |
+                 | ECHO = GPIO33            |
+                 |                          |
+   HC-SR04 #2    | TRIG = GPIO4             |
+                 | ECHO = GPIO5             |
+                +---------------------------+
+
+- Potentiometer (10kΩ):  
+   - VCC → 3.3V  
+   - GND → GND  
+   - Middle pin → GPIO34  
+
+- Button (Pull-up config):  
+   - One side → GPIO25  
+   - Other side → GND  
+
+- LEDs (with 220Ω resistors each):  
+   - Anode (+) → GPIO26 / 27 / 14  
+   - Cathode (-) → GND  
+
+- HC-SR04 sensors:  
+   - VCC → 5V  
+   - GND → GND  
+   - TRIG/ECHO → as assigned above
